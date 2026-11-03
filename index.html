@@ -45,7 +45,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body {
-  background: var(--bg); color: var(--ink); font-family: var(--f-ui); font-size: 16px; line-height: 1.6;
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-ui); font-size: 16px; line-height: 1.6;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 20px 60px; -webkit-font-smoothing: antialiased;
 }
@@ -476,13 +476,22 @@ async function put(id, data) {
   state.docs.set(id, data); render();
   if (state.mode === "db") {
     try { await col.doc(id).set(data); }
-    catch (e) { toast(e?.code === "quota_exceeded" ? "พื้นที่เก็บข้อมูลเต็ม ลบรายการเก่าบางส่วนก่อน" : "บันทึกไม่สำเร็จ ลองอีกครั้ง"); }
+    catch (e) {
+      if (NO_ACCESS.has(e?.code)) goLocal();
+      else toast(e?.code === "quota_exceeded" ? "พื้นที่เก็บข้อมูลเต็ม ลบรายการเก่าบางส่วนก่อน" : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
+    }
   } else lsSave();
 }
 async function del(id) {
   state.docs.delete(id); render();
-  if (state.mode === "db") { try { await col.doc(id).delete(); } catch (e) { toast("ลบไม่สำเร็จ ลองอีกครั้ง"); } }
+  if (state.mode === "db") { try { await col.doc(id).delete(); } catch (e) { if (NO_ACCESS.has(e?.code)) goLocal(); else toast("ลบไม่สำเร็จ ลองอีกครั้ง"); } }
   else lsSave();
+}
+// a viewer without write access to the account store keeps their walks in this browser instead
+const NO_ACCESS = new Set(["invalid_argument", "not_granted", "revoked", "capability_disabled", "capability_removed"]);
+function goLocal() {
+  if (state.mode === "local") return;
+  state.mode = "local"; lsSave(); setStatus("ข้อมูลเก็บในเบราว์เซอร์นี้");
 }
 const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 function setStatus(text) { $("storeStatus").textContent = text; }
@@ -493,6 +502,7 @@ async function initStore() {
   try {
     const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
     if (!db || !user) return;
+    if ((await user.can?.("data.write")) === false) return; // view-only visitors stay in browser storage
     const uid = await user.id(); if (!uid) return;
     col = db.collection("data/users/" + uid);
     let first = true;
@@ -508,7 +518,7 @@ async function initStore() {
         lastUnlocked = null; // don't re-announce achievements already earned
       }
       state.docs = fresh; applySettings(); render();
-    }, () => { clearTimeout(timer); setStatus("ข้อมูลเก็บในเบราว์เซอร์นี้"); state.mode = "local"; });
+    }, () => { clearTimeout(timer); first = false; state.mode = "db"; goLocal(); });
   } catch (e) { /* stay local */ }
 }
 function applySettings() {

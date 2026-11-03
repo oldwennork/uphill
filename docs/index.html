@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Uphill — บันทึกการเดินรายวัน ความชัน ความเร็ว เวลา คำนวณแคลอรี่ พร้อมความสำเร็จและรางวัล">
+<meta name="theme-color" content="#f3efe8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191613" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Uphill">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Uphill</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%237A5034'/%3E%3Ccircle cx='20' cy='22' r='6' fill='%23E8C08A'/%3E%3Cpath d='M6 54 L30 26 L42 38 L48 32 L58 54 Z' fill='%23FAF8F4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one calm column, four tabs (Today / Stats / Rewards / History); logging lives in a bottom sheet so the home screen shows only today's scene and one button */
+:root {
+  --bg: #f3efe8;
+  --surface: #faf8f4;
+  --ink: #2e2923;
+  --muted: #857a6d;
+  --faint: #b6aa9a;
+  --line: #e3dbcf;
+  --clay: #7a5034;
+  --clay-ink: #faf8f4;
+  --clay-soft: #eadfd4;
+  --moss: #66784a;
+  --moss-soft: #dfe4d1;
+  --sun: #d9a35b;
+  --hill1: #e8dfd2;
+  --hill2: #dccdb9;
+  --hill3: #c9b296;
+  --bad: #b5483a;
+  --scrim: rgba(46,41,35,.32);
+  --f-ui: "Anuphan", "IBM Plex Sans Thai", system-ui, -apple-system, sans-serif;
+  --f-num: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ease: cubic-bezier(.22,.8,.24,1);
+  --nav-h: 64px;
+  --app-w: 440px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #191613; --surface: #221e1a; --ink: #ede6db; --muted: #a39786; --faint: #6c6255; --line: #332d27;
+    --clay: #c49b78; --clay-ink: #191613; --clay-soft: #382a20; --moss: #a5b47f; --moss-soft: #2b3123;
+    --sun: #e3b46c; --hill1: #26211c; --hill2: #2f2822; --hill3: #3f352b; --bad: #e07a6a; --scrim: rgba(0,0,0,.5); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #191613; --surface: #221e1a; --ink: #ede6db; --muted: #a39786; --faint: #6c6255; --line: #332d27;
+  --clay: #c49b78; --clay-ink: #191613; --clay-soft: #382a20; --moss: #a5b47f; --moss-soft: #2b3123;
+  --sun: #e3b46c; --hill1: #26211c; --hill2: #2f2822; --hill3: #3f352b; --bad: #e07a6a; --scrim: rgba(0,0,0,.5); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-ui); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 60px; -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { margin: 0; font-weight: 500; line-height: 1.3; text-wrap: balance; }
+h2 { font-size: 1.25rem; font-weight: 500; }
+h3 { font-size: 1rem; font-weight: 500; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.muted { color: var(--muted); }
+.small { font-size: .86rem; }
+.label { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--clay); outline-offset: 3px; border-radius: 8px; }
+
+.wrap { max-width: calc(var(--app-w) - 32px); margin: 0 auto; display: grid; gap: 20px; }
+button, input, a { touch-action: manipulation; }
+input { font-size: 16px; } /* keeps iOS from zooming on focus */
+
+/* header */
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand svg { width: 32px; height: 32px; flex: none; }
+.brand h1 { font-size: 1.1rem; }
+.head-actions { display: flex; gap: 8px; align-items: center; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--surface); display: grid; place-items: center; color: var(--muted); transition: background .2s, color .2s; }
+.icon-btn:hover { color: var(--ink); }
+.icon-btn svg { width: 20px; height: 20px; }
+
+/* bottom tab bar, phone-width even on large screens */
+body { padding-bottom: calc(var(--nav-h) + 40px + env(safe-area-inset-bottom, 0px)); }
+nav.tabs { position: fixed; z-index: 20; left: 50%; transform: translateX(-50%); bottom: 0; width: min(var(--app-w), 100%); display: flex; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+nav.tabs button { flex: 1; border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: .72rem; padding: 6px 2px; border-radius: 12px; color: var(--muted); transition: color .3s; }
+nav.tabs button svg { width: 24px; height: 24px; flex: none; transition: transform .3s var(--ease); }
+nav.tabs button[aria-selected="true"] { color: var(--clay); }
+nav.tabs button[aria-selected="true"] svg { transform: translateY(-1px) scale(1.06); }
+
+.panel { display: grid; gap: 22px; }
+.panel.show { animation: rise .5s var(--ease); }
+.card { background: var(--surface); border-radius: 20px; padding: 20px; min-width: 0; }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* today */
+.greet { font-size: clamp(1.45rem, 4.6vw, 2rem); font-weight: 300; line-height: 1.3; letter-spacing: -.01em; }
+.greet small { display: block; font-size: .95rem; font-weight: 400; color: var(--muted); margin-top: 6px; letter-spacing: 0; }
+.scene { width: 100%; max-width: 100%; display: block; }
+.scene-legend { display: flex; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; font-size: .86rem; color: var(--muted); margin-top: 6px; }
+.scene-legend b { color: var(--ink); font-weight: 500; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.stats3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); }
+.stat { padding: 2px 14px; border-left: 1px solid var(--line); }
+.stat:first-child { border-left: 0; padding-left: 0; }
+.stat .v { font-family: var(--f-num); font-size: 1.7rem; line-height: 1.2; letter-spacing: -.03em; }
+.stat .v small { font-family: var(--f-ui); font-size: .78rem; color: var(--muted); margin-left: 4px; letter-spacing: 0; }
+.stat .sub { font-size: .78rem; color: var(--muted); }
+.cta { width: 100%; border: 0; border-radius: 18px; padding: 16px; font-size: 1.05rem; font-weight: 500; background: var(--clay); color: var(--clay-ink); display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform .2s var(--ease), filter .2s; }
+.cta:hover { filter: brightness(1.05); }
+.cta:active { transform: scale(.98); }
+.cta svg { width: 20px; height: 20px; }
+.next { display: flex; gap: 14px; align-items: center; }
+.next svg { width: 52px; height: 52px; flex: none; }
+.demo { font-size: .84rem; color: var(--muted); text-align: center; margin: -8px 0 0; }
+.demo b { color: var(--clay); font-weight: 500; }
+
+.btn { border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 500; background: var(--ink); color: var(--bg); transition: transform .2s var(--ease), opacity .2s; }
+.btn:hover { opacity: .88; }
+.btn:active { transform: scale(.98); }
+.btn.sm { padding: 6px 14px; font-size: .84rem; }
+.btn:disabled { opacity: .3; cursor: not-allowed; transform: none; }
+.link { border: 0; background: none; padding: 0; color: var(--clay); font-size: .86rem; text-decoration: underline; text-underline-offset: 3px; }
+.more { border: 0; background: none; color: var(--muted); font-size: .88rem; padding: 10px 0 0; display: inline-flex; gap: 6px; align-items: center; }
+.more:hover { color: var(--ink); }
+.zone { font-size: .76rem; font-weight: 500; padding: 1px 9px; border-radius: 999px; display: inline-block; }
+.zone.light { background: var(--moss-soft); color: var(--moss); }
+.zone.mod { background: var(--clay-soft); color: var(--clay); }
+.zone.vig { background: var(--clay); color: var(--clay-ink); }
+.grade { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-size: 1.25rem; font-weight: 500; flex: none; border: 1px solid var(--line); }
+.grade.A { background: var(--moss); color: var(--surface); border-color: var(--moss); }
+.grade.B { background: var(--moss-soft); color: var(--moss); border-color: transparent; }
+.grade.C { background: var(--clay-soft); color: var(--clay); border-color: transparent; }
+.last { display: flex; gap: 14px; align-items: center; }
+
+/* bottom sheet */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 40; opacity: 0; transition: opacity .3s; }
+.scrim.open { opacity: 1; }
+.sheet { position: fixed; z-index: 41; left: 50%; bottom: 0; width: min(var(--app-w), 100%); max-height: 92vh; overscroll-behavior: contain; overflow-y: auto; background: var(--surface);
+  border-radius: 24px 24px 0 0; padding: 10px max(20px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  transform: translate(-50%, 100%); transition: transform .4s var(--ease); box-shadow: 0 -10px 40px rgba(40,30,20,.15); }
+.sheet.open { transform: translate(-50%, 0); }
+.sheet.dragging { transition: none; }
+.grab { width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 14px; }
+.sheet .drag-zone { touch-action: none; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.sheet-sub { font-size: .86rem; color: var(--muted); margin-bottom: 18px; }
+.form { display: grid; gap: 14px; }
+.stepper { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.stepper:first-of-type { border-top: 1px solid var(--line); }
+.stepper label { font-weight: 500; }
+.stepper .hint { display: block; font-size: .78rem; color: var(--muted); font-weight: 400; }
+.ctrl { display: flex; align-items: center; gap: 6px; }
+.ctrl button { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--bg); font-size: 1.25rem; line-height: 1; color: var(--ink); transition: background .2s, transform .15s; }
+.ctrl button:hover { background: var(--clay-soft); }
+.ctrl button:active { transform: scale(.92); }
+.ctrl input { width: 70px; text-align: center; border: 0; background: transparent; font-family: var(--f-num); font-size: 1.35rem; padding: 4px 0; border-radius: 8px; -moz-appearance: textfield; }
+.ctrl input::-webkit-inner-spin-button, .ctrl input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.ctrl input:focus { outline: none; background: var(--bg); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 0; background: var(--bg); border-radius: 999px; padding: 6px 12px; font-size: .82rem; color: var(--muted); transition: background .25s, color .25s, transform .2s var(--ease); }
+.chip:hover { background: var(--clay-soft); color: var(--clay); }
+.chip:active { transform: scale(.96); }
+.result { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; background: var(--bg); border-radius: 16px; padding: 14px 16px; }
+.result .v { font-family: var(--f-num); font-size: 2rem; color: var(--clay); line-height: 1.1; letter-spacing: -.03em; }
+.result .v small { font-family: var(--f-ui); font-size: .85rem; margin-left: 4px; color: var(--muted); letter-spacing: 0; }
+details.extra summary { cursor: pointer; color: var(--muted); font-size: .9rem; list-style: none; display: flex; align-items: center; gap: 6px; }
+details.extra summary::-webkit-details-marker { display: none; }
+details.extra summary::before { content: "+"; font-family: var(--f-num); width: 18px; }
+details.extra[open] summary::before { content: "–"; }
+.field { display: grid; gap: 4px; margin-top: 12px; }
+.field label { font-size: .82rem; color: var(--muted); }
+.field input { width: 100%; min-width: 0; padding: 9px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; transition: border-color .25s; }
+.field input:focus { outline: none; border-bottom-color: var(--clay); }
+.date-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: .92rem; }
+.date-row input { border: 0; background: var(--bg); border-radius: 10px; padding: 6px 10px; }
+
+/* stats */
+.week { display: grid; grid-template-columns: minmax(0,1fr); gap: 16px; justify-items: center; text-align: center; }
+.rings svg { width: 150px; height: 150px; display: block; }
+.weeks12 { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 6px; height: 56px; margin-top: 22px; }
+.wk { background: var(--hill1); border-radius: 6px; position: relative; overflow: hidden; }
+.wk.now { box-shadow: 0 0 0 1.5px var(--ink); }
+.wk i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 6px; transition: height .9s var(--ease); }
+.weeks12-cap { display: flex; justify-content: space-between; gap: 8px; font-size: .74rem; color: var(--muted); margin-top: 6px; }
+.week-big { font-family: var(--f-num); font-size: 2.2rem; line-height: 1.1; letter-spacing: -.03em; }
+.week-big small { font-family: var(--f-ui); font-size: .9rem; color: var(--muted); letter-spacing: 0; }
+.cmp-row { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; margin-top: 10px; font-size: .88rem; color: var(--muted); }
+.cmp-row b { color: var(--ink); font-weight: 500; font-family: var(--f-num); }
+.delta { font-family: var(--f-num); font-size: .78rem; }
+.delta.up { color: var(--moss); } .delta.down { color: var(--bad); } .delta.flat { color: var(--faint); }
+.insights { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.insights li { padding-left: 18px; position: relative; }
+.insights li::before { content: ""; position: absolute; left: 0; top: .75em; width: 8px; height: 1px; background: var(--moss); }
+.insights li.warm::before { background: var(--clay); }
+.insights li.bad::before { background: var(--bad); }
+.chart h3 { font-weight: 400; color: var(--muted); font-size: .88rem; margin-bottom: 8px; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { fill: var(--faint); font-family: var(--f-num); font-size: 10px; }
+.gridline { stroke: var(--line); stroke-width: 1; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: .78rem; color: var(--muted); margin-top: 6px; }
+.heat { overflow-x: auto; }
+.heat svg { min-width: 420px; }
+.extra-charts { display: grid; gap: 30px; margin-top: 26px; }
+.facts { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; }
+.fact .big { font-size: 1.15rem; line-height: 1.35; margin: 2px 0; }
+.collapsed > .opt { display: none; }
+
+/* rewards */
+.points { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+.points .v { font-family: var(--f-num); font-size: 2.4rem; color: var(--clay); line-height: 1; letter-spacing: -.03em; }
+.lvl { min-width: 180px; text-align: right; }
+.lvl .line { height: 3px; background: var(--line); margin: 6px 0 4px; border-radius: 3px; overflow: hidden; }
+.lvl .line i { display: block; height: 100%; background: var(--clay); transition: width 1.2s var(--ease); }
+.reward { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.reward:last-child { border-bottom: 0; }
+.reward .name { font-weight: 500; overflow-wrap: anywhere; }
+.reward .track { height: 3px; background: var(--line); margin: 8px 0 4px; border-radius: 3px; overflow: hidden; }
+.reward .track i { display: block; height: 100%; background: var(--clay); transition: width 1s var(--ease); }
+.reward .actions { display: flex; gap: 6px; align-items: center; }
+.add-reward { display: grid; grid-template-columns: minmax(0,1fr) 80px; gap: 12px; margin-top: 14px; align-items: end; }
+.add-reward .btn { grid-column: 1 / -1; }
+.add-reward input { padding: 9px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; min-width: 0; }
+.add-reward input:focus { outline: none; border-bottom-color: var(--clay); }
+.stones { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 22px 10px; }
+.stone { display: grid; justify-items: center; text-align: center; gap: 4px; }
+.stone svg { width: 58px; height: 58px; overflow: visible; }
+.stone .halo { transition: stroke-dashoffset 1.2s var(--ease); }
+.stone h3 { font-size: .82rem; line-height: 1.3; }
+.stone p { margin: 0; font-size: .72rem; color: var(--muted); line-height: 1.35; }
+.stone:not(.on) h3 { color: var(--muted); }
+
+/* history */
+.hist { display: grid; }
+.hrow { display: grid; grid-template-columns: 48px minmax(0,1fr) auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.hrow:last-child { border-bottom: 0; }
+.hdate { text-align: center; line-height: 1.15; }
+.hdate b { display: block; font-family: var(--f-num); font-size: 1.3rem; font-weight: 400; }
+.hdate span { font-size: .72rem; color: var(--muted); }
+.hmain { min-width: 0; }
+.hmain .t { font-family: var(--f-num); font-size: .92rem; }
+.hmain .s { font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+.hright { text-align: right; display: grid; justify-items: end; gap: 2px; }
+.hright .k { font-family: var(--f-num); color: var(--clay); white-space: nowrap; }
+.del { border: 0; background: transparent; padding: 2px 6px; font-size: .76rem; color: var(--faint); border-radius: 6px; transition: color .2s, background .2s; }
+.del:hover { color: var(--bad); }
+.del.confirm { color: var(--surface); background: var(--bad); }
+
+/* motion */
+@keyframes rise { from { opacity: .2; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+.intro .bar-r { transform-box: fill-box; transform-origin: bottom; animation: grow .9s var(--ease) both; animation-delay: calc(var(--i) * 35ms + .15s); }
+.intro .draw { stroke-dasharray: 1; animation: draw 1.4s var(--ease) both; animation-delay: var(--dd, .2s); }
+.intro .cell { transform-box: fill-box; transform-origin: center; animation: pop .5s var(--ease) both; animation-delay: calc(var(--i) * 5ms + .1s); }
+@media (prefers-reduced-motion: reduce) { .panel.show, .intro .bar-r, .intro .draw, .intro .cell { animation: none; } * { transition: none !important; } }
+
+.toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; z-index: 60; width: min(calc(var(--app-w) - 32px), calc(100vw - 32px)); }
+.toast { background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius: 14px; font-size: .9rem; box-shadow: 0 10px 30px rgba(40,30,20,.18); animation: toastIn .45s var(--ease); }
+.toast.ach { background: var(--clay); color: var(--clay-ink); }
+.toast.out { animation: toastOut .35s ease-in forwards; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(8px); } }
+.empty { color: var(--muted); font-size: .9rem; padding: 6px 0; }
+.note { color: var(--faint); font-size: .76rem; line-height: 1.6; margin: 0; }
+</style>
+
+</head>
+<body>
+<div class="wrap" id="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#7A5034"/><circle cx="20" cy="22" r="6" fill="#E8C08A"/><path d="M6 54 L30 26 L42 38 L48 32 L58 54 Z" fill="#FAF8F4"/></svg>
+      <h1>Uphill</h1>
+    </div>
+    <div class="head-actions">
+      <button class="icon-btn" id="openSettings" aria-label="ตั้งค่า น้ำหนักและเป้าหมาย">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="เมนู">
+    <button role="tab" data-tab="today" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="7" r="2.5"/><path d="M3 19l6-6 3 2.5L21 9"/></svg>วันนี้</button>
+    <button role="tab" data-tab="stats" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>สถิติ</button>
+    <button role="tab" data-tab="rewards" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M8.5 13 7 21l5-2.5L17 21l-1.5-8"/></svg>รางวัล</button>
+    <button role="tab" data-tab="history" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r=".8" fill="currentColor"/><circle cx="4" cy="12" r=".8" fill="currentColor"/><circle cx="4" cy="18" r=".8" fill="currentColor"/></svg>ประวัติ</button>
+  </nav>
+
+  <!-- TODAY -->
+  <section class="panel" id="tab-today" role="tabpanel" aria-label="วันนี้">
+    <div class="greet" id="motivation">กำลังโหลด…</div>
+    <div>
+      <svg class="scene" id="scene" viewBox="0 0 900 260" role="img" aria-label="ดวงอาทิตย์ขึ้นตามเวลาเดินวันนี้ คนเดินไต่ภูเขาตามความสูงสะสม"></svg>
+      <div class="scene-legend"><span id="legSun"></span><span id="legMtn"></span></div>
+    </div>
+    <div class="stats3">
+      <div class="stat"><div class="label">วันนี้</div><div class="v" id="kToday" data-u="นาที">0</div><div class="sub" id="kTodaySub">&nbsp;</div></div>
+      <div class="stat"><div class="label">แคลอรี่</div><div class="v" id="kKcal" data-u="kcal">0</div><div class="sub" id="kKcalSub">&nbsp;</div></div>
+      <div class="stat"><div class="label">ต่อเนื่อง</div><div class="v" id="kStreak" data-u="วัน">0</div><div class="sub" id="kStreakSub">&nbsp;</div></div>
+    </div>
+    <button class="cta" id="openLog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>บันทึกการเดิน</button>
+    <p class="demo" id="demoBanner" hidden><b>ตัวอย่าง</b> · ตัวเลขตอนนี้เป็นข้อมูลตัวอย่าง บันทึกครั้งแรกแล้วจะเป็นข้อมูลของคุณ</p>
+    <div class="card last" id="lastSession" hidden></div>
+    <div class="card next" id="nextAch" hidden></div>
+  </section>
+
+  <!-- STATS -->
+  <section class="panel" id="tab-stats" role="tabpanel" aria-label="สถิติ" hidden>
+    <div class="card">
+      <div class="sec-head"><h2>สัปดาห์นี้</h2><span class="small muted" id="evRange"></span></div>
+      <div class="week">
+        <div class="rings" id="rings"></div>
+        <div style="min-width:0">
+          <div class="week-big" id="whoBig">0 <small>/ 150 นาที</small></div>
+          <div class="small muted">เป้าหมายสุขภาพของ WHO ต่อสัปดาห์</div>
+          <div class="cmp-row" id="compare"></div>
+        </div>
+      </div>
+      <div class="weeks12" id="weekStrip" role="img" aria-label="เวลาเดินระดับปานกลาง 12 สัปดาห์ล่าสุด"></div>
+      <div class="weeks12-cap"><span>12 สัปดาห์ก่อน</span><span><i class="dot" style="background:var(--moss)"></i>ถึงเป้า WHO</span><span>สัปดาห์นี้</span></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:12px">คำแนะนำ</h2>
+      <ul class="insights" id="insights"></ul>
+    </div>
+    <div class="card chart">
+      <div class="sec-head" style="margin-bottom:6px"><h2>14 วันล่าสุด</h2><span class="small muted">นาที · เส้นประคือเป้าหมาย</span></div>
+      <div id="chDaily"></div>
+      <button class="more" id="toggleCharts" aria-expanded="false">ดูกราฟเพิ่มเติม ▾</button>
+      <div class="extra-charts" id="extraCharts" hidden>
+        <div><h3>แคลอรี่รายสัปดาห์</h3><div id="chWeekly"></div></div>
+        <div><h3>ความชันและความเร็ว 20 ครั้งล่าสุด</h3><div id="chTrend"></div>
+          <div class="legend"><span><i class="dot" style="background:var(--moss)"></i>ความชัน %</span><span><i class="dot" style="background:var(--clay)"></i>ความเร็ว กม./ชม.</span></div></div>
+        <div><h3>ความเข้มข้น kcal/นาที · เส้นประคือค่าเฉลี่ย</h3><div id="chIntensity"></div></div>
+        <div class="heat"><h3>ปฏิทิน 16 สัปดาห์</h3><div id="chHeat"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:14px">รู้หรือไม่</h2>
+      <div class="facts collapsed" id="factGrid"></div>
+      <button class="more" data-expand="factGrid" data-label="ดูเพิ่ม ▾" aria-expanded="false">ดูเพิ่ม ▾</button>
+    </div>
+  </section>
+
+  <!-- REWARDS -->
+  <section class="panel" id="tab-rewards" role="tabpanel" aria-label="รางวัล" hidden>
+    <div class="card">
+      <div class="points">
+        <div><div class="label">แต้มของคุณ</div><div class="v" id="ptsAvail">0</div><div class="small muted" id="ptsSub"></div></div>
+        <div class="lvl"><div class="label">เลเวล <span class="num" id="lvNum">1</span></div><div style="font-weight:500" id="lvTitle">นักเดินมือใหม่</div>
+          <div class="line"><i id="lvBar" style="width:0%"></i></div><div class="small muted num" id="lvText">0 / 100 XP</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><h2>รางวัลให้ตัวเอง</h2><span class="small muted">10 kcal = 1 แต้ม</span></div>
+      <div id="rewardList"></div>
+      <form class="add-reward" id="rewardForm" novalidate>
+        <input type="text" id="rName" maxlength="60" placeholder="อยากได้อะไร" aria-label="ชื่อรางวัล">
+        <input type="number" id="rCost" min="10" step="10" placeholder="แต้ม" aria-label="แต้มที่ต้องใช้" class="num">
+        <button class="btn sm" type="submit">เพิ่ม</button>
+      </form>
+      <div class="presets" id="rewardIdeas" style="margin-top:12px"></div>
+      <div id="redeemLog" class="small muted" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><h2>ความสำเร็จ</h2><span class="small muted num" id="achCount"></span></div>
+      <div class="stones collapsed" id="achGrid"></div>
+      <button class="more" data-expand="achGrid" data-label="ดูทั้งหมด ▾" aria-expanded="false">ดูทั้งหมด ▾</button>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="panel" id="tab-history" role="tabpanel" aria-label="ประวัติ" hidden>
+    <div class="card">
+      <div class="sec-head"><h2>ประวัติการเดิน</h2><span class="small muted num" id="histCount"></span></div>
+      <div class="hist" id="histBody"></div>
+    </div>
+    <p class="note">แคลอรี่คำนวณด้วยสมการการเดินของ ACSM (VO₂ = 0.1·v + 1.8·v·ความชัน + 3.5) เป็นค่าประมาณ แม่นที่สุดที่ 3–7.5 กม./ชม. และไม่จับราวลู่วิ่ง · <span id="storeStatus">กำลังเชื่อมต่อ…</span></p>
+  </section>
+</div>
+
+<!-- LOG SHEET -->
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="logSheet" role="dialog" aria-modal="true" aria-labelledby="logTitle" hidden>
+  <div class="grab drag-zone" style="padding:6px 0;background-clip:content-box;height:16px;margin-bottom:8px"></div>
+  <div class="sheet-head drag-zone"><h2 id="logTitle">บันทึกการเดิน</h2><button class="icon-btn" data-close aria-label="ปิด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="sheet-sub" id="logSub">ใส่แค่ 3 ค่า ที่เหลือเราคำนวณให้</div>
+  <form class="form" id="walkForm" novalidate>
+    <div class="date-row"><span id="dateText">วันนี้</span><button type="button" class="link" id="changeDate">เปลี่ยนวันที่</button><input type="date" id="fDate" hidden aria-label="วันที่"></div>
+    <div>
+      <div class="stepper"><label for="fIncline">ความชัน<span class="hint">%</span></label>
+        <div class="ctrl"><button type="button" data-step="fIncline" data-d="-0.5" aria-label="ลดความชัน">−</button><input type="number" id="fIncline" min="0" max="30" step="0.5" inputmode="decimal"><button type="button" data-step="fIncline" data-d="0.5" aria-label="เพิ่มความชัน">+</button></div></div>
+      <div class="stepper"><label for="fSpeed">ความเร็ว<span class="hint">กม./ชม.</span></label>
+        <div class="ctrl"><button type="button" data-step="fSpeed" data-d="-0.1" aria-label="ลดความเร็ว">−</button><input type="number" id="fSpeed" min="1" max="12" step="0.1" inputmode="decimal"><button type="button" data-step="fSpeed" data-d="0.1" aria-label="เพิ่มความเร็ว">+</button></div></div>
+      <div class="stepper"><label for="fMin">เวลา<span class="hint">นาที</span></label>
+        <div class="ctrl"><button type="button" data-step="fMin" data-d="-5" aria-label="ลดเวลา">−</button><input type="number" id="fMin" min="1" max="600" step="1" inputmode="numeric"><button type="button" data-step="fMin" data-d="5" aria-label="เพิ่มเวลา">+</button></div></div>
+    </div>
+    <div class="presets" aria-label="สูตรสำเร็จรูป">
+      <button type="button" class="chip" data-preset="12,4.8,30">12-3-30</button>
+      <button type="button" class="chip" data-preset="1,4.5,40">เดินชิล</button>
+      <button type="button" class="chip" data-preset="8,5,45">ไต่เขา</button>
+      <button type="button" class="chip" data-preset="5,6,30">เดินเร็ว</button>
+    </div>
+    <div class="result" aria-live="polite">
+      <div><div class="label">เผาผลาญประมาณ</div><div class="v" id="pvKcal" data-u="kcal">–</div></div>
+      <div class="small muted" style="text-align:right"><span id="pvDist"></span><br><span id="pvMet"></span></div>
+    </div>
+    <details class="extra"><summary>เพิ่มความเหนื่อยหรือโน้ต</summary>
+      <div class="field"><label for="fFeel">ความเหนื่อย 1–10</label><input type="number" id="fFeel" min="1" max="10" step="1" inputmode="numeric" class="num"></div>
+      <div class="field"><label for="fNote">โน้ต</label><input type="text" id="fNote" maxlength="120" placeholder="เช่น เดินหลังเลิกงาน"></div>
+    </details>
+    <button class="cta" type="submit">บันทึก</button>
+    <p class="small" id="formMsg" style="margin:0;color:var(--bad)"></p>
+    <p class="small muted" style="margin:0;text-align:center">คำนวณจากน้ำหนัก <span class="num" id="wText">65</span> กก. · <button type="button" class="link" id="editWeight">แก้ไข</button></p>
+  </form>
+</div>
+
+<!-- SETTINGS SHEET -->
+<div class="sheet" id="setSheet" role="dialog" aria-modal="true" aria-labelledby="setTitle" hidden>
+  <div class="grab drag-zone" style="padding:6px 0;background-clip:content-box;height:16px;margin-bottom:8px"></div>
+  <div class="sheet-head drag-zone"><h2 id="setTitle">ข้อมูลของคุณ</h2><button class="icon-btn" data-close aria-label="ปิด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="sheet-sub">ใช้คำนวณแคลอรี่และตั้งเป้าหมายประจำวัน</div>
+  <div class="form">
+    <div>
+      <div class="stepper"><label for="sWeight">น้ำหนัก<span class="hint">กก.</span></label>
+        <div class="ctrl"><button type="button" data-step="sWeight" data-d="-0.5" aria-label="ลดน้ำหนัก">−</button><input type="number" id="sWeight" min="25" max="250" step="0.1" inputmode="decimal"><button type="button" data-step="sWeight" data-d="0.5" aria-label="เพิ่มน้ำหนัก">+</button></div></div>
+      <div class="stepper"><label for="sGoal">เป้าหมายต่อวัน<span class="hint">นาที</span></label>
+        <div class="ctrl"><button type="button" data-step="sGoal" data-d="-5" aria-label="ลดเป้าหมาย">−</button><input type="number" id="sGoal" min="5" max="300" step="5" inputmode="numeric"><button type="button" data-step="sGoal" data-d="5" aria-label="เพิ่มเป้าหมาย">+</button></div></div>
+    </div>
+    <button class="cta" id="saveSettings">บันทึก</button>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 0) => Number(n || 0).toLocaleString("th-TH", { minimumFractionDigits: d, maximumFractionDigits: d });
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pad = (n) => String(n).padStart(2, "0");
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseYmd = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const todayStr = () => ymd(new Date());
+const weekStart = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return addDays(x, -((x.getDay() + 6) % 7)); };
+const thDate = (s, opts = { day: "numeric", month: "short" }) => parseYmd(s).toLocaleDateString("th-TH", opts);
+const DOW = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+function tweenNum(el, to, d = 0) {
+  const from = parseFloat(el.dataset.val || "0"); el.dataset.val = to;
+  const unit = el.dataset.u ? `<small>${el.dataset.u}</small>` : "";
+  if (reduceMotion || from === to) { el.innerHTML = fmt(to, d) + unit; return; }
+  const t0 = performance.now(), dur = 800;
+  const step = (now) => { const t = Math.min(1, (now - t0) / dur); el.innerHTML = fmt(from + (to - from) * easeOut(t), d) + unit; if (t < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/* ---------- calorie model (ACSM walking equation) ---------- */
+function calc(w, weight) {
+  const v = w.speed * 1000 / 60, grade = w.incline / 100;
+  const vo2 = 0.1 * v + 1.8 * v * grade + 3.5;
+  const met = vo2 / 3.5, kg = w.weight || weight;
+  const kcalPerMin = vo2 * kg / 1000 * 5, kcal = kcalPerMin * w.minutes;
+  const dist = w.speed * w.minutes / 60, elev = dist * 1000 * grade, metMin = met * w.minutes;
+  const zone = met >= 6 ? "vig" : met >= 3 ? "mod" : "light";
+  const g = metMin >= 250 ? "A" : metMin >= 150 ? "B" : metMin >= 80 ? "C" : "D";
+  return { vo2, met, kcal, kcalPerMin, dist, elev, metMin, zone, grade: g };
+}
+const ZONE = { light: "เบา", mod: "ปานกลาง", vig: "หนัก" };
+
+/* ---------- state + storage ---------- */
+const state = { docs: new Map(), mode: "loading", settings: { weight: 65, goal: 30 } };
+let col = null, lastUnlocked = null, S = null;
+const LS_KEY = "kaosasom-v1";
+function lsLoad() { try { const raw = localStorage.getItem(LS_KEY); if (raw) { const o = JSON.parse(raw); for (const k in o) state.docs.set(k, o[k]); } } catch (e) {} }
+function lsSave() { try { localStorage.setItem(LS_KEY, JSON.stringify(Object.fromEntries(state.docs))); } catch (e) {} }
+async function put(id, data) {
+  state.docs.set(id, data); render();
+  if (state.mode === "db") {
+    try { await col.doc(id).set(data); }
+    catch (e) {
+      if (NO_ACCESS.has(e?.code)) goLocal();
+      else toast(e?.code === "quota_exceeded" ? "พื้นที่เก็บข้อมูลเต็ม ลบรายการเก่าบางส่วนก่อน" : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
+    }
+  } else lsSave();
+}
+async function del(id) {
+  state.docs.delete(id); render();
+  if (state.mode === "db") { try { await col.doc(id).delete(); } catch (e) { if (NO_ACCESS.has(e?.code)) goLocal(); else toast("ลบไม่สำเร็จ ลองอีกครั้ง"); } }
+  else lsSave();
+}
+// a viewer without write access to the account store keeps their walks in this browser instead
+const NO_ACCESS = new Set(["invalid_argument", "not_granted", "revoked", "capability_disabled", "capability_removed"]);
+function goLocal() {
+  if (state.mode === "local") return;
+  state.mode = "local"; lsSave(); setStatus("ข้อมูลเก็บในเบราว์เซอร์นี้");
+}
+const newId = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+function setStatus(text) { $("storeStatus").textContent = text; }
+
+async function initStore() {
+  lsLoad(); state.mode = "local"; applySettings(); render(); setStatus("ข้อมูลเก็บในเบราว์เซอร์นี้");
+  if (!window.claude?.use) return;
+  try {
+    const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+    if (!db || !user) return;
+    if ((await user.can?.("data.write")) === false) return; // view-only visitors stay in browser storage
+    const uid = await user.id(); if (!uid) return;
+    col = db.collection("data/users/" + uid);
+    let first = true;
+    const timer = setTimeout(() => { if (first) setStatus("เชื่อมต่อช้า · ใช้ข้อมูลในเบราว์เซอร์"); }, 10000);
+    col.onSnapshot((snap) => {
+      clearTimeout(timer);
+      const fresh = new Map(); snap.docs.forEach((d) => fresh.set(d.id, d.data()));
+      if (first) {
+        first = false;
+        // carry over anything logged locally before the store answered
+        for (const [k, v] of state.docs) if (!fresh.has(k)) { fresh.set(k, v); col.doc(k).set(v).catch(() => {}); }
+        state.mode = "db"; setStatus("ข้อมูลซิงก์กับบัญชีของคุณ");
+        lastUnlocked = null; // don't re-announce achievements already earned
+      }
+      state.docs = fresh; applySettings(); render();
+    }, () => { clearTimeout(timer); first = false; state.mode = "db"; goLocal(); });
+  } catch (e) { /* stay local */ }
+}
+function applySettings() {
+  const s = state.docs.get("settings");
+  if (s) state.settings = { weight: Number(s.weight) || 65, goal: Number(s.goal) || 30 };
+  $("wText").textContent = fmt(state.settings.weight, state.settings.weight % 1 ? 1 : 0);
+}
+
+/* ---------- demo data (only while there are no real walks) ---------- */
+function demoData() {
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const walks = [], t = new Date();
+  for (let i = 34; i >= 0; i--) {
+    if (rnd() < (i < 6 ? 0.05 : 0.3)) continue;
+    const prog = (34 - i) / 34;
+    walks.push({ type: "walk", date: ymd(addDays(t, -i)), incline: Math.round((3 + prog * 7 + rnd() * 4) * 2) / 2,
+      speed: Math.round((4.3 + prog * 0.8 + rnd() * 0.6) * 10) / 10, minutes: i === 0 ? 20 : Math.round(25 + rnd() * 25 + prog * 10),
+      feel: Math.round(4 + rnd() * 4), note: "", createdAt: +addDays(t, -i), weight: 65 });
+  }
+  return walks;
+}
+
+/* ---------- derived stats ---------- */
+const LANDMARKS = [
+  { m: 0, name: "ระดับน้ำทะเล" }, { m: 304, name: "ตึกใบหยก 2" }, { m: 1676, name: "ดอยสุเทพ" }, { m: 2565, name: "ดอยอินทนนท์" },
+  { m: 3776, name: "ภูเขาไฟฟูจิ" }, { m: 8849, name: "ยอดเอเวอเรสต์" },
+];
+function derive() {
+  const all = [...state.docs.entries()];
+  let walks = all.filter(([, v]) => v && v.type === "walk").map(([id, v]) => ({ id, ...v }));
+  const demo = walks.length === 0;
+  if (demo) walks = demoData().map((w, i) => ({ id: "demo" + i, ...w }));
+  const W = state.settings.weight;
+  walks.forEach((w) => { w.c = calc(w, W); });
+  walks.sort((a, b) => a.date === b.date ? (a.createdAt || 0) - (b.createdAt || 0) : a.date < b.date ? -1 : 1);
+  const rewards = all.filter(([, v]) => v && v.type === "reward").map(([id, v]) => ({ id, ...v })).sort((a, b) => a.cost - b.cost);
+  const redeems = all.filter(([, v]) => v && v.type === "redeem").map(([id, v]) => ({ id, ...v })).sort((a, b) => (b.at || 0) - (a.at || 0));
+  const byDay = new Map();
+  for (const w of walks) {
+    const d = byDay.get(w.date) || { min: 0, kcal: 0, dist: 0, elev: 0, metMin: 0, modMin: 0 };
+    d.min += w.minutes; d.kcal += w.c.kcal; d.dist += w.c.dist; d.elev += w.c.elev; d.metMin += w.c.metMin;
+    d.modMin += w.c.zone === "vig" ? w.minutes * 2 : w.c.zone === "mod" ? w.minutes : 0;
+    byDay.set(w.date, d);
+  }
+  const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
+  const tot = { kcal: sum(walks, (w) => w.c.kcal), min: sum(walks, (w) => w.minutes), dist: sum(walks, (w) => w.c.dist), elev: sum(walks, (w) => w.c.elev), n: walks.length };
+  const today = new Date(), tStr = ymd(today);
+  let streak = 0, cur = byDay.has(tStr) ? today : addDays(today, -1);
+  while (byDay.has(ymd(cur))) { streak++; cur = addDays(cur, -1); }
+  let best = 0, run = 0, prev = null;
+  [...byDay.keys()].sort().forEach((k) => { const d = parseYmd(k); run = prev && Math.round((d - prev) / 864e5) === 1 ? run + 1 : 1; best = Math.max(best, run); prev = d; });
+  const ws = weekStart(today);
+  const weekAgg = (start) => { const r = { min: 0, kcal: 0, dist: 0, modMin: 0, days: 0 };
+    for (let i = 0; i < 7; i++) { const d = byDay.get(ymd(addDays(start, i))); if (d) { r.min += d.min; r.kcal += d.kcal; r.dist += d.dist; r.modMin += d.modMin; r.days++; } } return r; };
+  const weeks = Array.from({ length: 12 }, (_, i) => ({ start: addDays(ws, -7 * (11 - i)), ...weekAgg(addDays(ws, -7 * (11 - i))) }));
+  const maxWeekMod = Math.max(0, ...Array.from({ length: 52 }, (_, i) => weekAgg(addDays(ws, -7 * i)).modMin));
+  const ach = evalAchievements({ walks, tot, streak, best, maxWeekMod });
+  const unlocked = ach.filter((a) => a.done).length;
+  const earned = Math.round(tot.kcal / 10) + unlocked * 100;
+  const spent = demo ? 0 : sum(redeems, (r) => r.cost);
+  return { walks, demo, rewards, redeems, byDay, tot, streak, best, thisWeek: weeks[11], lastWeek: weeks[10], weeks, ws, ach, unlocked, earned, spent };
+}
+
+/* ---------- achievements ---------- */
+function evalAchievements({ walks, tot, streak, best, maxWeekMod }) {
+  const p = (v, goal) => Math.min(1, v / goal);
+  const longest = Math.max(0, ...walks.map((w) => w.minutes));
+  const has1233 = walks.some((w) => w.incline >= 12 && w.speed >= 4.8 && w.minutes >= 30);
+  const maxInc = Math.max(0, ...walks.map((w) => w.incline));
+  const maxKcal = Math.max(0, ...walks.map((w) => w.c.kcal));
+  const bs = Math.max(best, streak);
+  const list = [
+    ["first", "ก้าวแรก", "บันทึกครั้งแรก", "1", p(tot.n, 1)],
+    ["n10", "ขาประจำ", "เดินครบ 10 ครั้ง", "10", p(tot.n, 10)],
+    ["n50", "ไม่มีวันหยุด", "เดินครบ 50 ครั้ง", "50", p(tot.n, 50)],
+    ["s3", "ติดลม", "ต่อเนื่อง 3 วัน", "3d", p(bs, 3)],
+    ["s7", "ครบสัปดาห์", "ต่อเนื่อง 7 วัน", "7d", p(bs, 7)],
+    ["s30", "นิสัยใหม่", "ต่อเนื่อง 30 วัน", "30d", p(bs, 30)],
+    ["d10", "สิบโล", "สะสม 10 กม.", "10k", p(tot.dist, 10)],
+    ["d42", "มาราธอนสะสม", "สะสม 42.195 กม.", "42k", p(tot.dist, 42.195)],
+    ["d100", "ร้อยกิโล", "สะสม 100 กม.", "100k", p(tot.dist, 100)],
+    ["k1000", "พันแคล", "เผาผลาญ 1,000 kcal", "1k", p(tot.kcal, 1000)],
+    ["k7700", "ไขมัน 1 กิโล", "เผาผลาญ 7,700 kcal", "1kg", p(tot.kcal, 7700)],
+    ["k500", "เซสชันโหด", "500 kcal ในครั้งเดียว", "500", p(maxKcal, 500)],
+    ["long60", "ชั่วโมงทอง", "60 นาทีในครั้งเดียว", "60'", p(longest, 60)],
+    ["inc15", "สายชันสุด", "เดินที่ความชัน 15%", "15%", p(maxInc, 15)],
+    ["1233", "12-3-30", "ชัน 12% · 4.8 กม./ชม. · 30 นาที", "12·3", has1233 ? 1 : 0],
+    ["who", "ตามเกณฑ์ WHO", "150 นาทีในสัปดาห์เดียว", "150", p(maxWeekMod, 150)],
+    ...LANDMARKS.slice(1).map((l, i) => [`elev${i}`, l.name, `ไต่สะสม ${fmt(l.m)} ม.`, "▲" + (i + 1), p(tot.elev, l.m)]),
+  ];
+  return list.map(([id, title, desc, ico, prog]) => ({ id, title, desc, ico, prog, done: prog >= 1 }));
+}
+const LEVELS = [0, 100, 300, 600, 1000, 1500, 2200, 3000, 4000, 5500, 7500, 10000, 13000, 17000, 22000];
+const TITLES = ["นักเดินมือใหม่", "นักเดินฝึกหัด", "นักเดินตัวจริง", "นักเดินขาแข็ง", "นักไต่เนิน", "นักไต่ดอย", "นักเดินทางไกล", "ผู้พิชิตยอดเขา", "ตำนานลู่วิ่ง", "ปรมาจารย์แห่งก้าว"];
+
+/* ---------- render ---------- */
+function render() {
+  S = derive();
+  $("demoBanner").hidden = !S.demo;
+  renderToday(S); renderStats(S); renderRewards(S); renderHistory(S);
+  const ids = new Set(S.ach.filter((a) => a.done).map((a) => a.id));
+  if (!S.demo && lastUnlocked) S.ach.filter((a) => a.done && !lastUnlocked.has(a.id)).forEach((a) => toast(`ปลดล็อก <b>${esc(a.title)}</b> · +100 แต้ม`, true));
+  lastUnlocked = S.demo ? new Set() : ids;
+}
+
+function motivation(S) {
+  const t = S.byDay.get(todayStr()), goal = state.settings.goal;
+  if (S.demo) return ["ก้าวเล็ก ๆ วันนี้ คือภูเขาลูกใหญ่ในวันหน้า", "เดินเสร็จแล้วกดปุ่มบันทึกด้านล่าง"];
+  if (t && t.min >= goal) return ["วันนี้ครบเป้าแล้ว เก่งมาก", "พักให้พอ แล้วเจอกันพรุ่งนี้"];
+  if (t) return [`อีก ${fmt(goal - t.min)} นาที ก็ครบเป้าวันนี้`, "เดินเพิ่มอีกรอบสั้น ๆ ก็นับรวมได้"];
+  if (S.streak > 0) return [`รักษา ${S.streak} วันต่อเนื่องไว้นะ`, "วันนี้ยังไม่ได้เดิน แค่ 15 นาทีก็พอ"];
+  const lastDate = S.walks.length ? S.walks[S.walks.length - 1].date : null;
+  const gap = lastDate ? Math.round((parseYmd(todayStr()) - parseYmd(lastDate)) / 864e5) : 0;
+  if (gap >= 3) return [`ห่างไป ${gap} วัน กลับมาเริ่มใหม่ได้เสมอ`, "เริ่มเบา ๆ ที่ความชัน 3–5% ก่อน"];
+  return ["วันใหม่ ก้าวใหม่", "ออกไปเดินกันเถอะ"];
+}
+
+/* landscape: sun rises with today's minutes, walker climbs with total elevation */
+const scene = { sunP: 0, climbP: 0, built: false, len: 0 };
+function ridgeY(x) { return 250 - 205 * Math.exp(-Math.pow((x - 700) / 250, 2)) + Math.sin(x / 37) * 4 + Math.sin(x / 13) * 1.5; }
+function buildScene() {
+  const svg = $("scene"), H = 260;
+  const back = (amp, c, w, off) => { let d = `M0,${H}`; for (let x = 0; x <= 900; x += 10) d += `L${x},${(H - amp * Math.exp(-Math.pow((x - c) / w, 2)) + Math.sin((x + off) / 41) * 6).toFixed(1)}`; return d + `L900,${H}Z`; };
+  let ridge = ""; for (let x = 30; x <= 700; x += 5) ridge += `${x === 30 ? "M" : "L"}${x},${ridgeY(x).toFixed(1)}`;
+  let front = `M0,${H}`; for (let x = 0; x <= 900; x += 5) front += `L${x},${ridgeY(x).toFixed(1)}`; front += `L900,${H}Z`;
+  svg.innerHTML = `
+    <path d="M60,232 A170,170 0 0 1 400,232" fill="none" stroke="var(--line)" stroke-width="1" stroke-dasharray="2 5"/>
+    <g id="sun"><circle r="30" fill="var(--sun)" opacity=".15"/><circle r="17" fill="var(--sun)"/></g>
+    <path d="${back(120, 250, 210, 0)}" fill="var(--hill1)"/>
+    <path d="${back(150, 520, 220, 90)}" fill="var(--hill2)"/>
+    <path d="${front}" fill="var(--hill3)"/>
+    <path d="${ridge}" fill="none" stroke="var(--surface)" stroke-width="1.5" stroke-dasharray="3 5" opacity=".9"/>
+    <path id="trailDone" d="${ridge}" pathLength="1" fill="none" stroke="var(--clay)" stroke-width="3" stroke-linecap="round" stroke-dasharray="0 1"/>
+    <g transform="translate(700,${(ridgeY(700) - 2).toFixed(1)})"><line x1="0" y1="0" x2="0" y2="-24" stroke="var(--ink)" stroke-width="1.5"/><path d="M0,-24 L15,-19 L0,-14Z" fill="var(--clay)"/></g>
+    <g id="walker"><circle r="11" fill="var(--clay)" opacity=".18"/><circle r="5.5" fill="var(--clay)" stroke="var(--surface)" stroke-width="2"/></g>`;
+  scene.trail = $("trailDone"); scene.built = true;
+}
+function placeScene(sunP, climbP) {
+  if (!scene.len) scene.len = scene.trail.getTotalLength();
+  if (!scene.len) return; // hidden tab: placed again when Today is shown
+  const a = Math.PI - sunP * Math.PI / 2, cx = 230, cy = 232, r = 170;
+  $("sun").setAttribute("transform", `translate(${(cx + r * Math.cos(a)).toFixed(1)},${(cy - r * Math.sin(a)).toFixed(1)})`);
+  const pt = scene.trail.getPointAtLength(Math.max(0.001, climbP) * scene.len);
+  $("walker").setAttribute("transform", `translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)})`);
+  scene.trail.setAttribute("stroke-dasharray", `${climbP.toFixed(4)} 1`);
+}
+function animateScene(sunTo, climbTo, fromZero = false) {
+  if (!scene.built) buildScene();
+  const s0 = fromZero ? 0 : scene.sunP, c0 = fromZero ? 0 : scene.climbP; scene.sunP = sunTo; scene.climbP = climbTo;
+  if (reduceMotion) return placeScene(sunTo, climbTo);
+  const t0 = performance.now(), dur = s0 === 0 && c0 === 0 ? 2000 : 1100;
+  const step = (now) => { const t = easeOut(Math.min(1, (now - t0) / dur)); placeScene(s0 + (sunTo - s0) * t, c0 + (climbTo - c0) * t); if (t < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function sceneTargets(S) {
+  const t = S.byDay.get(todayStr()) || { min: 0 }, elev = S.tot.elev;
+  const ni = LANDMARKS.findIndex((l) => l.m > elev);
+  const from = ni === -1 ? LANDMARKS[LANDMARKS.length - 2] : LANDMARKS[ni - 1], to = ni === -1 ? LANDMARKS[LANDMARKS.length - 1] : LANDMARKS[ni];
+  return { sun: Math.min(1, t.min / state.settings.goal), climb: ni === -1 ? 1 : (elev - from.m) / (to.m - from.m), to, done: ni === -1, elev };
+}
+
+function stoneSvg(a) {
+  const R = 28, Cf = 2 * Math.PI * R;
+  return `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${R}" fill="none" stroke="var(--line)" stroke-width="2"/>
+    <circle class="halo" cx="32" cy="32" r="${R}" fill="none" stroke="${a.done ? "var(--moss)" : "var(--clay)"}" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 32 32)" stroke-dasharray="${Cf.toFixed(1)}" stroke-dashoffset="${(Cf * (1 - a.prog)).toFixed(1)}"/>
+    <circle cx="32" cy="32" r="21" fill="${a.done ? "var(--moss)" : "var(--bg)"}"/>
+    <text x="32" y="36" text-anchor="middle" fill="${a.done ? "var(--surface)" : "var(--muted)"}" style="font-family:var(--f-num);font-size:11px;font-weight:500">${esc(a.ico)}</text></svg>`;
+}
+
+function renderToday(S) {
+  const [m1, m2] = motivation(S);
+  $("motivation").innerHTML = `${esc(m1)}<small>${esc(m2)}</small>`;
+  const t = S.byDay.get(todayStr()) || { min: 0, kcal: 0, dist: 0 }, goal = state.settings.goal;
+  tweenNum($("kToday"), t.min); $("kTodaySub").textContent = t.min >= goal ? "ครบเป้าแล้ว" : `เป้า ${goal} นาที`;
+  tweenNum($("kKcal"), Math.round(t.kcal)); $("kKcalSub").textContent = t.dist ? `${fmt(t.dist, 2)} กม.` : "วันนี้";
+  tweenNum($("kStreak"), S.streak); $("kStreakSub").textContent = `สูงสุด ${Math.max(S.best, S.streak)} วัน`;
+  const g = sceneTargets(S);
+  if (!$("tab-today").hidden) animateScene(g.sun, g.climb);
+  $("legSun").innerHTML = `<i class="dot" style="background:var(--sun)"></i>ดวงอาทิตย์ขึ้นสุดเมื่อครบเป้าวันนี้`;
+  $("legMtn").innerHTML = g.done ? `<i class="dot" style="background:var(--clay)"></i>พิชิตทุกยอดแล้ว · <b class="num">${fmt(g.elev)}</b> ม.`
+    : `<i class="dot" style="background:var(--clay)"></i>ไต่แล้ว <b class="num">${fmt(g.elev)}</b> ม. · อีก <b class="num">${fmt(g.to.m - g.elev)}</b> ม. ถึง${g.to.name}`;
+
+  const last = S.walks[S.walks.length - 1];
+  $("lastSession").hidden = !last;
+  if (last) {
+    const avgK = S.walks.reduce((s, w) => s + w.c.kcalPerMin, 0) / S.walks.length, vs = (last.c.kcalPerMin - avgK) / avgK * 100;
+    const gt = { A: "ยอดเยี่ยม", B: "ดีมาก", C: "พอใช้", D: "เบา ๆ" }[last.c.grade];
+    $("lastSession").innerHTML = `<div class="grade ${last.c.grade}">${last.c.grade}</div><div style="min-width:0">
+      <div class="label">ครั้งล่าสุด · ${thDate(last.date, { weekday: "short", day: "numeric", month: "short" })}</div>
+      <div>${gt} · <span class="num">${fmt(last.c.kcal)}</span> kcal ใน ${last.minutes} นาที</div>
+      <div class="small muted">${Math.abs(vs) < 3 ? "ความเข้มใกล้เคียงค่าเฉลี่ยของคุณ" : vs > 0 ? `เข้มกว่าค่าเฉลี่ยของคุณ ${fmt(vs)}%` : `เบากว่าค่าเฉลี่ยของคุณ ${fmt(-vs)}%`}</div></div>`;
+  }
+  const next = S.ach.filter((a) => !a.done).sort((a, b) => b.prog - a.prog)[0];
+  $("nextAch").hidden = !next;
+  if (next) $("nextAch").innerHTML = `${stoneSvg(next)}<div style="min-width:0"><div class="label">ความสำเร็จถัดไป</div><div style="font-weight:500">${esc(next.title)}</div><div class="small muted">${esc(next.desc)} · ไปแล้ว ${fmt(next.prog * 100)}%</div></div>`;
+}
+
+function deltaChip(a, b) {
+  if (!b) return a ? `<span class="delta up">ใหม่</span>` : `<span class="delta flat">–</span>`;
+  const d = (a - b) / b * 100, cls = Math.abs(d) < 3 ? "flat" : d > 0 ? "up" : "down";
+  return `<span class="delta ${cls}">${d > 0 ? "↑" : d < 0 ? "↓" : ""}${fmt(Math.abs(d))}%</span>`;
+}
+
+/* this week: one progress ring vs WHO 150; history: 12 weekly pills underneath */
+const ringState = { pct: 0 };
+function renderRings(S) {
+  const pct = Math.min(1, S.thisWeek.modMin / 150), done = pct >= 1;
+  if (!$("ringFill")) {
+    $("rings").innerHTML = `<svg viewBox="0 0 170 170" role="img" aria-label="ความคืบหน้าสัปดาห์นี้">
+      <circle cx="85" cy="85" r="70" fill="none" stroke="var(--hill1)" stroke-width="14"/>
+      <circle id="ringFill" cx="85" cy="85" r="70" fill="none" stroke-width="14" stroke-linecap="round" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100" transform="rotate(-90 85 85)" style="transition: stroke-dashoffset 1.2s var(--ease), stroke .4s"/>
+      <text id="ringPct" x="85" y="92" text-anchor="middle" fill="var(--ink)" style="font-family:var(--f-num);font-size:26px">0%</text></svg>`;
+  }
+  $("ringFill").setAttribute("stroke", done ? "var(--moss)" : "var(--clay)");
+  $("ringPct").textContent = `${fmt(pct * 100)}%`;
+  // a zero-length dash still draws a round cap, so hide the arc entirely at 0
+  $("ringFill").style.opacity = pct > 0 ? 1 : 0;
+  requestAnimationFrame(() => requestAnimationFrame(() => $("ringFill").setAttribute("stroke-dashoffset", (100 - pct * 100).toFixed(1))));
+  ringState.pct = pct;
+  $("weekStrip").innerHTML = S.weeks.map((w, i) => {
+    const p = Math.min(1, w.modMin / 150);
+    return `<div class="wk${i === 11 ? " now" : ""}" title="สัปดาห์ ${thDate(ymd(w.start))}: ${fmt(w.modMin)}/150 นาที"><i data-h="${(p * 100).toFixed(0)}" style="height:0%;background:${p >= 1 ? "var(--moss)" : "var(--clay)"};opacity:${p >= 1 ? 1 : 0.55};transition-delay:${i * 40}ms"></i></div>`;
+  }).join("");
+  requestAnimationFrame(() => requestAnimationFrame(() => $("weekStrip").querySelectorAll("i").forEach((el) => { el.style.height = el.dataset.h + "%"; })));
+}
+
+function renderStats(S) {
+  const tw = S.thisWeek, lw = S.lastWeek;
+  $("evRange").textContent = `${thDate(ymd(S.ws))} – ${thDate(ymd(addDays(S.ws, 6)))}`;
+  renderRings(S);
+  $("whoBig").innerHTML = `${fmt(tw.modMin)} <small>/ 150 นาที</small>`;
+  $("compare").innerHTML = `<span><b>${fmt(tw.kcal)}</b> kcal ${deltaChip(tw.kcal, lw.kcal)}</span><span><b>${fmt(tw.dist, 1)}</b> กม. ${deltaChip(tw.dist, lw.dist)}</span><span><b>${tw.days}</b> วันที่เดิน</span>`;
+  const ins = [], dow = (new Date().getDay() + 6) % 7 + 1;
+  if (tw.modMin >= 150) ins.push(["", "ผ่านเกณฑ์ WHO สัปดาห์นี้แล้ว ช่วยลดความเสี่ยงโรคหัวใจและเบาหวาน"]);
+  else { const left = 150 - tw.modMin, dl = 7 - dow + 1; ins.push(["warm", `อีก ${fmt(left)} นาทีถึงเกณฑ์ WHO ≈ วันละ ${fmt(Math.ceil(left / Math.max(1, dl)))} นาทีในวันที่เหลือ`]); }
+  const ws = S.walks;
+  if (ws.length >= 6) {
+    const k = Math.min(5, Math.floor(ws.length / 2)), avg = (a, f) => a.reduce((s, w) => s + f(w), 0) / a.length;
+    const rec = avg(ws.slice(-k), (w) => w.c.kcalPerMin), bef = avg(ws.slice(-2 * k, -k), (w) => w.c.kcalPerMin), d = (rec - bef) / bef * 100;
+    ins.push([d >= 0 ? "" : "warm", `${k} ครั้งล่าสุดคุณเดิน${d >= 0 ? "หนักขึ้น" : "เบาลง"} ${fmt(Math.abs(d))}% เทียบกับก่อนหน้า`]);
+    if (avg(ws.slice(-k), (w) => w.incline) < 4) ins.push(["warm", "ลองเพิ่มความชันเป็น 5–8% จะเผาผลาญมากขึ้น 30–60% โดยไม่ต้องเดินเร็วขึ้น"]);
+  }
+  const feels = ws.slice(-5).filter((w) => w.feel);
+  if (feels.length >= 3) { const f = feels.reduce((s, w) => s + w.feel, 0) / feels.length; if (f >= 8) ins.push(["bad", `ช่วงนี้เหนื่อยเฉลี่ย ${fmt(f, 1)}/10 ลองสลับเป็นวันเดินเบา ๆ`]); }
+  $("insights").innerHTML = ins.slice(0, 3).map(([c, t]) => `<li class="${c}">${esc(t)}</li>`).join("");
+  renderCharts(S); renderFacts(S);
+}
+
+/* ---------- charts ---------- */
+function niceMax(v) { if (v <= 0) return 10; const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; }
+function axes(Wd, H, L, B, T, ymax, ticks = 3) {
+  let s = "";
+  for (let i = 0; i <= ticks; i++) { const v = ymax / ticks * i, y = H - B - (H - B - T) * (i / ticks);
+    s += `<line class="gridline" x1="${L}" x2="${Wd}" y1="${y}" y2="${y}"/><text x="${L - 8}" y="${y + 3}" text-anchor="end">${fmt(v, v % 1 ? 1 : 0)}</text>`; }
+  return s;
+}
+function barChart(el, items, { goal = null, color, dim = "var(--hill2)", tip }) {
+  const Wd = 600, H = 200, L = 36, B = 22, T = 8;
+  const ymax = niceMax(Math.max(goal || 0, ...items.map((d) => d.v)) * 1.05);
+  const n = items.length, slot = (Wd - L) / n, bw = Math.min(18, slot * 0.5), y = (v) => H - B - (H - B - T) * (v / ymax);
+  let s = axes(Wd, H, L, B, T, ymax);
+  items.forEach((d, i) => {
+    const x = L + slot * i + (slot - bw) / 2;
+    if (d.v > 0) s += `<rect class="bar-r" style="--i:${i}" x="${x.toFixed(1)}" y="${y(d.v).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, H - B - y(d.v)).toFixed(1)}" rx="${(bw / 2).toFixed(1)}" fill="${goal == null || d.v >= goal ? color : dim}"><title>${esc(tip(d))}</title></rect>`;
+    s += `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(d.label)}</text>`;
+  });
+  if (goal != null) s += `<line x1="${L}" x2="${Wd}" y1="${y(goal)}" y2="${y(goal)}" stroke="var(--clay)" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${Wd} ${H}" role="img">${s}</svg>`;
+}
+function lineChart(el, series, labels, { avg = null } = {}) {
+  const Wd = 600, H = 200, L = 36, B = 22, T = 8, R = 8;
+  const ymax = niceMax(Math.max(1, ...series.flatMap((s) => s.values)) * 1.1), n = labels.length;
+  const x = (i) => L + (n <= 1 ? (Wd - L - R) / 2 : (Wd - L - R) * i / (n - 1)), y = (v) => H - B - (H - B - T) * (v / ymax);
+  let s = axes(Wd, H, L, B, T, ymax);
+  if (avg != null) s += `<line x1="${L}" x2="${Wd - R}" y1="${y(avg)}" y2="${y(avg)}" stroke="var(--faint)" stroke-width="1" stroke-dasharray="4 4"/>`;
+  series.forEach((sr) => {
+    const P = sr.values.map((v, i) => [x(i), y(v)]);
+    let d = `M${P[0][0].toFixed(1)},${P[0][1].toFixed(1)}`;
+    for (let i = 0; i < P.length - 1; i++) { const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2;
+      d += `C${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)},${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)} ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)},${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`; }
+    if (sr.area) s += `<path d="${d}L${x(n - 1)},${H - B}L${x(0)},${H - B}Z" fill="${sr.color}" opacity=".1"/>`;
+    s += `<path class="draw" pathLength="1" d="${d}" fill="none" stroke="${sr.color}" stroke-width="2" stroke-linecap="round"/>`;
+    sr.values.forEach((v, i) => { s += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === n - 1 ? 4.5 : 8}" fill="${i === n - 1 ? sr.color : "transparent"}"><title>${esc(labels[i])}: ${fmt(v, 1)} ${esc(sr.unit)}</title></circle>`; });
+  });
+  const st = Math.ceil(n / 6);
+  labels.forEach((lb, i) => { if (i % st === 0 || i === n - 1) s += `<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(lb)}</text>`; });
+  el.innerHTML = `<svg viewBox="0 0 ${Wd} ${H}" role="img">${s}</svg>`;
+}
+function renderCharts(S) {
+  const today = new Date(), goal = state.settings.goal;
+  const days = Array.from({ length: 14 }, (_, i) => { const d = addDays(today, i - 13), k = ymd(d), v = S.byDay.get(k);
+    return { v: v ? v.min : 0, kcal: v ? v.kcal : 0, label: String(d.getDate()), k }; });
+  barChart($("chDaily"), days, { goal, color: "var(--moss)", tip: (d) => `${thDate(d.k)}: ${fmt(d.v)} นาที · ${fmt(d.kcal)} kcal` });
+  const weeks = S.weeks.slice(-8).map((w) => ({ v: w.kcal, label: `${w.start.getDate()}/${w.start.getMonth() + 1}`, k: ymd(w.start) }));
+  barChart($("chWeekly"), weeks, { color: "var(--clay)", tip: (d) => `สัปดาห์ ${thDate(d.k)}: ${fmt(d.v)} kcal` });
+  const recent = S.walks.slice(-20), lbl = recent.map((w) => { const d = parseYmd(w.date); return `${d.getDate()}/${d.getMonth() + 1}`; });
+  if (recent.length) {
+    lineChart($("chTrend"), [{ values: recent.map((w) => w.incline), color: "var(--moss)", unit: "%", area: true }, { values: recent.map((w) => w.speed), color: "var(--clay)", unit: "กม./ชม." }], lbl);
+    const avg = S.walks.reduce((s, w) => s + w.c.kcalPerMin, 0) / S.walks.length;
+    lineChart($("chIntensity"), [{ values: recent.map((w) => w.c.kcalPerMin), color: "var(--clay)", unit: "kcal/นาที", area: true }], lbl, { avg });
+  }
+  const start = addDays(S.ws, -7 * 15), cell = 14, gap = 4, L = 30, T = 18;
+  let s = "", idx = 0, lastMonth = -1;
+  const maxMin = Math.max(goal, ...[...S.byDay.values()].map((d) => d.min));
+  ["จ", "", "พ", "", "ศ", "", "อา"].forEach((t, r) => { if (t) s += `<text x="${L - 8}" y="${T + r * (cell + gap) + 11}" text-anchor="end">${t}</text>`; });
+  for (let c = 0; c < 16; c++) for (let r = 0; r < 7; r++) {
+    const d = addDays(start, c * 7 + r); if (d > today) continue;
+    if (r === 0 && d.getMonth() !== lastMonth) { lastMonth = d.getMonth(); s += `<text x="${L + c * (cell + gap)}" y="10">${d.toLocaleDateString("th-TH", { month: "short" })}</text>`; }
+    const v = S.byDay.get(ymd(d)), m = v ? v.min : 0;
+    s += `<rect class="cell" style="--i:${idx++}" x="${L + c * (cell + gap)}" y="${T + r * (cell + gap)}" width="${cell}" height="${cell}" rx="${cell / 2}" fill="${m ? "var(--moss)" : "var(--hill1)"}" opacity="${m ? (0.3 + 0.7 * Math.min(1, m / maxMin)).toFixed(2) : 1}"><title>${thDate(ymd(d), { weekday: "short", day: "numeric", month: "short" })}: ${fmt(m)} นาที</title></rect>`;
+  }
+  $("chHeat").innerHTML = `<svg viewBox="0 0 ${L + 16 * (cell + gap)} ${T + 7 * (cell + gap)}" role="img">${s}</svg>`;
+}
+
+function renderFacts(S) {
+  const t = S.tot;
+  const ROUTES = [{ km: 2.5, name: "รอบสวนลุมพินี" }, { km: 42.195, name: "มาราธอน" }, { km: 76, name: "กรุงเทพฯ → อยุธยา" }, { km: 147, name: "กรุงเทพฯ → พัทยา" }, { km: 685, name: "กรุงเทพฯ → เชียงใหม่" }];
+  const nextR = ROUTES.find((r) => r.km > t.dist) || ROUTES[ROUTES.length - 1];
+  const fav = (() => { const m = new Map(); S.walks.forEach((w) => { const k = `${w.incline}% · ${w.speed} กม./ชม.`; m.set(k, (m.get(k) || 0) + 1); }); return [...m.entries()].sort((a, b) => b[1] - a[1])[0]; })();
+  const dc = Array(7).fill(0); S.walks.forEach((w) => { dc[parseYmd(w.date).getDay()] += w.minutes; });
+  const bd = dc.indexOf(Math.max(...dc));
+  const facts = [
+    ["เทียบอาหาร", `${fmt(t.kcal / 600, 1)} จานข้าวมันไก่`, `เผาผลาญรวม ${fmt(t.kcal)} kcal`],
+    ["ก้าวโดยประมาณ", `${fmt(t.dist * 1000 / 0.72)} ก้าว`, `ระยะทาง ${fmt(t.dist, 1)} กม.`],
+    ["ไต่ระดับ", `${fmt(t.elev / 3)} ชั้น`, `สูงรวม ${fmt(t.elev)} ม. (ชั้นละ 3 ม.)`],
+    ["ระยะทาง", `${fmt(Math.min(100, t.dist / nextR.km * 100))}% ของ${nextR.name}`, `${fmt(nextR.km, nextR.km % 1 ? 1 : 0)} กม.`],
+    ["ไขมันที่เผาผลาญ", `≈ ${fmt(t.kcal / 7.7)} กรัม`, "ไขมัน 1 กก. ≈ 7,700 kcal"],
+    ["เวลารวม", `${fmt(t.min / 60, 1)} ชั่วโมง`, `ดูซีรีส์ได้ ${fmt(t.min / 45)} ตอน`],
+    ["สูตรโปรด", fav ? fav[0] : "–", fav ? `ใช้ ${fav[1]} ครั้ง` : ""],
+    ["วันที่เดินเยอะสุด", `วัน${DOW[bd]}`, `รวม ${fmt(dc[bd])} นาที`],
+  ];
+  $("factGrid").innerHTML = facts.map(([l, b, sub], i) => `<div class="fact${i >= 3 ? " opt" : ""}"><div class="label">${l}</div><div class="big">${esc(b)}</div><div class="small muted">${esc(sub)}</div></div>`).join("");
+}
+
+const IDEAS = [["ชานมไข่มุก 1 แก้ว", 150], ["ดูหนังในโรง", 400], ["นวดเท้า 1 ชั่วโมง", 600], ["รองเท้าเดินคู่ใหม่", 3000]];
+function renderRewards(S) {
+  const avail = S.earned - S.spent;
+  tweenNum($("ptsAvail"), avail);
+  $("ptsSub").textContent = S.spent ? `สะสม ${fmt(S.earned)} · แลกไป ${fmt(S.spent)}` : "ยิ่งเดินยิ่งได้แต้ม";
+  let lv = 0; while (lv + 1 < LEVELS.length && S.earned >= LEVELS[lv + 1]) lv++;
+  const lo = LEVELS[lv], hi = LEVELS[lv + 1] ?? Math.round(lo * 1.3);
+  $("lvNum").textContent = lv + 1; $("lvTitle").textContent = TITLES[Math.min(lv, TITLES.length - 1)];
+  $("lvBar").style.width = `${Math.min(100, (S.earned - lo) / (hi - lo) * 100)}%`;
+  $("lvText").textContent = `${fmt(S.earned)} / ${fmt(hi)} XP`;
+  $("rewardList").innerHTML = !S.rewards.length ? `<p class="empty">ตั้งรางวัลที่อยากได้ แล้วใช้แต้มแลก ลองกดไอเดียด้านล่างก็ได้</p>` : S.rewards.map((r) => {
+    const can = !S.demo && avail >= r.cost, pct = Math.max(0, Math.min(100, avail / r.cost * 100));
+    return `<div class="reward"><div style="min-width:0"><div class="name">${esc(r.name)}</div><div class="track"><i style="width:${pct.toFixed(0)}%"></i></div>
+      <div class="small muted num">${fmt(r.cost)} แต้ม${can ? " · พร้อมแลก" : S.demo ? "" : ` · อีก ${fmt(r.cost - avail)}`}</div></div>
+      <div class="actions"><button class="btn sm" data-redeem="${esc(r.id)}" ${can ? "" : "disabled"}>แลก</button><button class="del" data-delreward="${esc(r.id)}">ลบ</button></div></div>`;
+  }).join("");
+  const have = new Set(S.rewards.map((r) => r.name));
+  $("rewardIdeas").innerHTML = IDEAS.filter(([n]) => !have.has(n)).map(([n, c]) => `<button type="button" class="chip" data-idea="${esc(n)}|${c}">+ ${esc(n)} · ${fmt(c)}</button>`).join("");
+  $("redeemLog").textContent = S.redeems.length ? "แลกล่าสุด: " + S.redeems.slice(0, 3).map((r) => `${r.name} (${new Date(r.at).toLocaleDateString("th-TH", { day: "numeric", month: "short" })})`).join(" · ") : "";
+  $("achCount").textContent = `${S.unlocked}/${S.ach.length}`;
+  const sorted = [...S.ach].sort((a, b) => (b.done - a.done) || (b.prog - a.prog));
+  $("achGrid").innerHTML = sorted.map((a, i) => `<div class="stone ${a.done ? "on" : ""}${i >= 6 ? " opt" : ""}" title="${esc(a.desc)}">${stoneSvg(a)}<h3>${esc(a.title)}</h3><p>${a.done ? "สำเร็จแล้ว" : `${fmt(a.prog * 100)}%`}</p></div>`).join("");
+}
+
+function renderHistory(S) {
+  $("histCount").textContent = S.demo ? "ตัวอย่าง" : `${S.walks.length} ครั้ง`;
+  $("histBody").innerHTML = [...S.walks].reverse().slice(0, 100).map((w) => { const d = parseYmd(w.date);
+    return `<div class="hrow"><div class="hdate"><b>${d.getDate()}</b><span>${d.toLocaleDateString("th-TH", { month: "short" })}</span></div>
+    <div class="hmain"><div class="t">${fmt(w.incline, 1)}% · ${fmt(w.speed, 1)} กม./ชม. · ${w.minutes} นาที</div>
+    <div class="s"><span class="zone ${w.c.zone}">${ZONE[w.c.zone]}</span> ${fmt(w.c.dist, 2)} กม. · เกรด ${w.c.grade}${w.note ? " · " + esc(w.note) : ""}</div></div>
+    <div class="hright"><span class="k">${fmt(w.c.kcal)} kcal</span>${S.demo ? "" : `<button class="del" data-del="${esc(w.id)}">ลบ</button>`}</div></div>`; }).join("") || `<p class="empty">ยังไม่มีข้อมูล</p>`;
+}
+
+function toast(html, ach = false) {
+  const el = document.createElement("div"); el.className = "toast" + (ach ? " ach" : ""); el.innerHTML = html; $("toasts").appendChild(el);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 400); }, ach ? 5000 : 3000);
+}
+
+/* ---------- tabs ---------- */
+const TABS = ["today", "stats", "rewards", "history"];
+function showTab(name, animate = true) {
+  if (!TABS.includes(name)) name = "today";
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  TABS.forEach((t) => {
+    const p = $("tab-" + t), on = t === name; p.hidden = !on;
+    p.classList.remove("show", "intro");
+    if (on && animate) { void p.offsetWidth; p.classList.add("show", "intro"); setTimeout(() => p.classList.remove("intro"), 2400); }
+  });
+  if (name === "today" && S) { const g = sceneTargets(S); animateScene(g.sun, g.climb, animate); }
+  if (name === "stats" && S && animate) { $("ringFill")?.setAttribute("stroke-dashoffset", "100"); void $("rings").getBoundingClientRect(); renderRings(S); }
+  try { history.replaceState(null, "", "#" + name); } catch (e) {}
+}
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => { showTab(b.dataset.tab); window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); }));
+
+/* expanders */
+$("toggleCharts").addEventListener("click", (e) => {
+  const box = $("extraCharts"), open = box.hidden; box.hidden = !open;
+  e.currentTarget.setAttribute("aria-expanded", String(open)); e.currentTarget.textContent = open ? "ซ่อนกราฟเพิ่มเติม ▴" : "ดูกราฟเพิ่มเติม ▾";
+  if (open) { box.classList.add("intro"); setTimeout(() => box.classList.remove("intro"), 2400); }
+});
+document.querySelectorAll("[data-expand]").forEach((b) => b.addEventListener("click", () => {
+  const open = $(b.dataset.expand).classList.toggle("collapsed") === false;
+  b.setAttribute("aria-expanded", String(open)); b.textContent = open ? "ย่อ ▴" : b.dataset.label;
+}));
+
+/* ---------- sheets ---------- */
+let openSheetEl = null, lastFocus = null;
+function openSheet(el, focusId) {
+  if (openSheetEl) closeSheet();
+  lastFocus = document.activeElement; openSheetEl = el;
+  $("scrim").hidden = false; el.hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => { $("scrim").classList.add("open"); el.classList.add("open"); }));
+  setTimeout(() => $(focusId)?.focus({ preventScroll: true }), 350);
+}
+function closeSheet() {
+  const el = openSheetEl; if (!el) return; openSheetEl = null;
+  $("scrim").classList.remove("open"); el.classList.remove("open");
+  setTimeout(() => { if (openSheetEl !== el) { el.hidden = true; if (!openSheetEl) $("scrim").hidden = true; } }, 400);
+  lastFocus?.focus?.({ preventScroll: true });
+}
+$("scrim").addEventListener("click", closeSheet);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openSheetEl) closeSheet(); });
+document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeSheet));
+// swipe the handle or header down to dismiss
+document.querySelectorAll(".sheet").forEach((sh) => {
+  let y0 = null, dy = 0;
+  sh.querySelectorAll(".drag-zone").forEach((z) => {
+    z.addEventListener("pointerdown", (e) => { if (e.target.closest("button")) return; y0 = e.clientY; dy = 0; sh.classList.add("dragging"); z.setPointerCapture(e.pointerId); });
+    z.addEventListener("pointermove", (e) => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); sh.style.transform = `translate(-50%, ${dy}px)`; });
+    const end = () => {
+      if (y0 == null) return; y0 = null; sh.classList.remove("dragging");
+      if (dy > 90) closeSheet();
+      sh.style.transform = ""; // transitions from the dragged position to open or closed
+    };
+    z.addEventListener("pointerup", end); z.addEventListener("pointercancel", end);
+  });
+});
+
+/* ---------- log form ---------- */
+const fIncline = $("fIncline");
+function readForm() { return { date: $("fDate").value, incline: parseFloat(fIncline.value), speed: parseFloat($("fSpeed").value), minutes: parseInt($("fMin").value, 10), feel: parseInt($("fFeel").value, 10) || null, note: $("fNote").value.trim() }; }
+function updatePreview() {
+  const f = readForm();
+  if (!(f.speed > 0) || !(f.minutes > 0) || !(f.incline >= 0)) { $("pvKcal").textContent = "–"; $("pvKcal").dataset.val = "0"; $("pvDist").textContent = ""; $("pvMet").innerHTML = ""; return; }
+  const c = calc(f, state.settings.weight);
+  tweenNum($("pvKcal"), Math.round(c.kcal));
+  $("pvDist").textContent = `${fmt(c.dist, 2)} กม. · ไต่ ${fmt(c.elev)} ม.`;
+  $("pvMet").innerHTML = `<span class="zone ${c.zone}">ความหนัก${ZONE[c.zone]}</span>`;
+}
+function updateDateText() {
+  const v = $("fDate").value, y = ymd(addDays(new Date(), -1));
+  $("dateText").textContent = v === todayStr() ? "วันนี้" : v === y ? "เมื่อวาน" : v ? thDate(v, { weekday: "long", day: "numeric", month: "long" }) : "เลือกวันที่";
+}
+$("openLog").addEventListener("click", () => {
+  // prefill with the last real walk so a repeat routine is one tap
+  const real = S && !S.demo ? S.walks[S.walks.length - 1] : null;
+  $("fDate").value = todayStr(); $("fDate").hidden = true; $("changeDate").hidden = false; updateDateText();
+  fIncline.value = real ? real.incline : 8; $("fSpeed").value = real ? real.speed : 5; $("fMin").value = real ? real.minutes : 30;
+  $("logSub").textContent = real ? "ใส่ค่าครั้งก่อนไว้ให้แล้ว แก้เฉพาะที่ต่างก็พอ" : "ใส่แค่ 3 ค่า ที่เหลือเราคำนวณให้";
+  $("formMsg").textContent = ""; updatePreview(); openSheet($("logSheet"), "fMin");
+});
+$("changeDate").addEventListener("click", () => { $("fDate").hidden = false; $("changeDate").hidden = true; $("fDate").focus(); });
+$("fDate").addEventListener("change", updateDateText);
+["fIncline", "fSpeed", "fMin"].forEach((id) => $(id).addEventListener("input", updatePreview));
+document.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => {
+  const inp = $(b.dataset.step), d = parseFloat(b.dataset.d), min = parseFloat(inp.min), max = parseFloat(inp.max);
+  const dec = (String(b.dataset.d).split(".")[1] || "").length;
+  const v = Math.min(max, Math.max(min, (parseFloat(inp.value) || 0) + d));
+  inp.value = v.toFixed(dec); inp.dispatchEvent(new Event("input"));
+}));
+document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => {
+  const [i, s, m] = b.dataset.preset.split(",").map(Number); fIncline.value = i; $("fSpeed").value = s; $("fMin").value = m; updatePreview();
+}));
+$("walkForm").addEventListener("submit", (e) => {
+  e.preventDefault(); const f = readForm(), msg = $("formMsg");
+  if (!f.date) return (msg.textContent = "เลือกวันที่ก่อนบันทึก");
+  if (!(f.incline >= 0 && f.incline <= 30)) return (msg.textContent = "ความชันต้องอยู่ระหว่าง 0–30%");
+  if (!(f.speed >= 1 && f.speed <= 12)) return (msg.textContent = "ความเร็วต้องอยู่ระหว่าง 1–12 กม./ชม.");
+  if (!(f.minutes >= 1 && f.minutes <= 600)) return (msg.textContent = "เวลาต้องอยู่ระหว่าง 1–600 นาที");
+  msg.textContent = "";
+  const c = calc(f, state.settings.weight);
+  closeSheet(); showTab("today", false);
+  put(newId("w"), { type: "walk", ...f, weight: state.settings.weight, createdAt: Date.now() });
+  toast(`บันทึกแล้ว · <b>${fmt(c.kcal)} kcal</b> · +${fmt(c.kcal / 10)} แต้ม`);
+  $("fNote").value = ""; $("fFeel").value = ""; document.querySelector("details.extra").open = false;
+  window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+});
+
+/* settings */
+function openSettings() { $("sWeight").value = state.settings.weight; $("sGoal").value = state.settings.goal; openSheet($("setSheet"), "sWeight"); }
+$("openSettings").addEventListener("click", openSettings);
+$("editWeight").addEventListener("click", openSettings);
+$("saveSettings").addEventListener("click", () => {
+  const w = parseFloat($("sWeight").value), g = parseInt($("sGoal").value, 10);
+  if (!(w >= 25 && w <= 250) || !(g >= 5 && g <= 300)) return toast("น้ำหนัก 25–250 กก. และเป้าหมาย 5–300 นาที");
+  state.settings = { weight: w, goal: g }; closeSheet();
+  put("settings", { type: "settings", weight: w, goal: g }); applySettings(); updatePreview(); toast("บันทึกแล้ว");
+});
+
+/* rewards + deletes */
+function addReward(name, cost) { put(newId("r"), { type: "reward", name, cost, createdAt: Date.now() }); }
+$("rewardForm").addEventListener("submit", (e) => {
+  e.preventDefault(); const n = $("rName").value.trim(), c = parseInt($("rCost").value, 10);
+  if (!n || !(c >= 10)) return toast("ใส่ชื่อรางวัลและแต้มอย่างน้อย 10");
+  addReward(n, c); $("rName").value = ""; $("rCost").value = "";
+});
+let pendingDel = null;
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.idea) { const [n, c] = b.dataset.idea.split("|"); addReward(n, Number(c)); return; }
+  if (b.dataset.redeem) {
+    const r = state.docs.get(b.dataset.redeem); if (!r) return;
+    put(newId("x"), { type: "redeem", rewardId: b.dataset.redeem, name: r.name, cost: r.cost, at: Date.now() });
+    toast(`แลก <b>${esc(r.name)}</b> แล้ว · สมควรได้รับ`, true); return;
+  }
+  const id = b.dataset.del || b.dataset.delreward;
+  if (id) {
+    if (pendingDel === b) { pendingDel = null; del(id); return; }
+    if (pendingDel) { pendingDel.classList.remove("confirm"); pendingDel.textContent = "ลบ"; }
+    pendingDel = b; b.classList.add("confirm"); b.textContent = "ยืนยัน";
+    setTimeout(() => { if (pendingDel === b) { b.classList.remove("confirm"); b.textContent = "ลบ"; pendingDel = null; } }, 4000);
+  }
+});
+
+/* ---------- boot ---------- */
+initStore(); // renders local data synchronously, then upgrades to the account store
+showTab((location.hash || "#today").slice(1));
+})();
+</script>
+
+</body>
+</html>
